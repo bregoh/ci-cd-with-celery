@@ -1,0 +1,3 @@
+# Yonker App
+
+### This is a bare django rest framework app, whose goal is to demostrate the use of celery and django, including celery set, ci-cd using GitLabs and docker
