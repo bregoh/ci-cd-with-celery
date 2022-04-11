@@ -9,4 +9,5 @@ omit =
   *migrations/*,
   *tests/*,
   *static/*,
+  *management/*,
 branch = True

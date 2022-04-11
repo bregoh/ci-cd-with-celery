@@ -1,0 +1,44 @@
+version: "3.9"
+
+services:
+    yonker-app:
+        image: registry.heroku.com/yonker-ci-cd/api
+        container_name: yonkers
+        command: /start_app
+        expose:
+          - 8000
+        env_file:
+            - .env
+        volumes:
+            - .:/usr/src/app
+
+    yonker-worker:
+        image: registry.heroku.com/yonker-ci-cd/api
+        container_name: yonker_worker
+        command: /start_celery
+        env_file:
+            - .env
+        volumes:
+            - .:/usr/src/app
+
+    flower:
+        image: registry.heroku.com/yonker-ci-cd/api
+        container_name: yonker_flower
+        env_file:
+            - .env
+        command: /flower_start
+        volumes:
+            - .:/usr/src/app
+        ports:
+            - 5557:5555
+    nginx:
+        build: ./nginx
+        ports:
+            - 1337:80
+        depends_on:
+            - yonker-app
+
+networks: 
+    default:
+        external: true
+        name: service-network

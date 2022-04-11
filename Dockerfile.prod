@@ -1,0 +1,84 @@
+###########
+# BUILDER #
+###########
+
+# pull official base image
+FROM python:3.10.1-slim-buster as builder
+
+# set work directory
+WORKDIR /usr/src/app
+
+# set environment variables
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
+
+# dependencies
+RUN apt-get update \
+    # dependencies for building Python packages
+    && apt-get install -y build-essential \
+    && apt-get install -y libpq-dev \
+    # Translations dependencies
+    && apt-get install -y gettext \
+    # cleaning up unused files
+    && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
+    && rm -rf /var/lib/apt/lists/*
+
+# lint
+RUN pip install --upgrade pip
+RUN pip install flake8==4.0.1
+RUN pip install isort==5.10.1
+RUN pip install black==22.3.0
+COPY . .
+RUN flake8 .
+RUN black --exclude=migrations .
+RUN isort .
+
+# install dependencies
+COPY ./requirements.prod.txt .
+RUN pip wheel --no-cache-dir --no-deps --wheel-dir /usr/src/app/wheels -r requirements.prod.txt
+
+
+# pull official base image
+FROM python:3.10.1-slim-buster
+
+# create directory for the app user
+RUN mkdir /usr/src/app
+
+# create the app user
+# RUN addgroup -S app && adduser -S app -G app
+
+# create the appropriate directories
+WORKDIR /usr/src/app
+
+# dependencies
+RUN apt-get update \
+    # psycopg2 dependencies
+    && apt-get install -y libpq-dev \
+    # Additional dependencies for pkill
+    && apt-get install -y procps 
+
+# install dependencies
+COPY --from=builder /usr/src/app/wheels /wheels
+COPY --from=builder /usr/src/app/requirements.prod.txt .
+RUN pip install --no-cache /wheels/*
+
+COPY /entrypoint_prod /entrypoint_prod
+RUN sed -i 's/\r$//g' /entrypoint_prod
+RUN chmod +x /entrypoint_prod
+
+COPY /start_app /start_app
+RUN sed -i 's/\r$//g' /start_app
+RUN chmod +x /start_app
+
+COPY /start_celery /start_celery
+RUN sed -i 's/\r$//g' /start_celery
+RUN chmod +x /start_celery
+
+COPY /flower_start /flower_start
+RUN sed -i 's/\r$//g' /flower_start
+RUN chmod +x /flower_start
+
+COPY . /usr/src/app
+
+
+ENTRYPOINT ["/entrypoint_prod"]
